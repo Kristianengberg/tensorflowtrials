@@ -8,13 +8,12 @@ from statistics import median, mean
 from collections import Counter
 
 LR = 1e-3
-env = gym.make('MountainCar-v0')
+env = gym.make('CartPole-v0')
 env.reset()
-goal_steps = 1000
-score_requirement = -50
+goal_steps = 500
+score_requirement = 60
 initial_games = 10000
-amount_of_actions = 3
-input_layer_size = 2
+
 
 
 def initial_population():
@@ -34,7 +33,7 @@ def initial_population():
         # for each frame in 200
         for _ in range(goal_steps):
             # choose random action (0 or 1)
-            action = env.action_space.sample()
+            action = random.randrange(0,2)
                 #random.randrange(0,3)
             # do it!
             observation, reward, done, info = env.step(action)
@@ -59,11 +58,10 @@ def initial_population():
             for data in game_memory:
                 # convert to one-hot (this is the output layer for our neural network)
                 if data[1] == 1:
-                    output = [1, 0, 0]
-                elif data[1] == 2:
-                    output = [0, 1, 0]
-                elif data[1] == 3:
-                    output = [0, 0, 1]
+                    output = [0, 1]
+                elif data[1] == 0:
+                    output = [1, 0]
+
 
 
                 # saving our training data
@@ -88,7 +86,7 @@ def initial_population():
 
 
 
-def neural_network_model(input_size=input_layer_size):
+def neural_network_model(input_size):
     network = input_data(shape=[None, input_size, 1], name='input')
 
     network = fully_connected(network, 128, activation='relu')
@@ -106,7 +104,7 @@ def neural_network_model(input_size=input_layer_size):
     network = fully_connected(network, 128, activation='relu')
     network = dropout(network, 0.8)
 
-    network = fully_connected(network, 3, activation='softmax')
+    network = fully_connected(network, 2, activation='softmax')
     network = regression(network, optimizer='adam', learning_rate=LR, loss='categorical_crossentropy', name='targets')
     model = tflearn.DNN(network, tensorboard_dir='log')
 
@@ -114,11 +112,12 @@ def neural_network_model(input_size=input_layer_size):
 
 
 def train_model(training_data, model=False):
-    X = np.array([i[0] for i in training_data]).reshape(-1, 2, 1)
+    X = np.array([i[0] for i in training_data]).reshape(-1, len(training_data[0][0]), 1)
     y = [i[1] for i in training_data]
+    print(y)
 
     if not model:
-        model = neural_network_model()
+        model = neural_network_model(input_size= len(X[0]))
 
     model.fit({'input': X}, {'targets': y}, n_epoch=5, snapshot_step=500, show_metric=True, run_id='openai_learning')
     return model
@@ -134,6 +133,7 @@ for each_game in range(10):
     game_memory = []
     prev_obs = []
     env.reset()
+
     for _ in range(goal_steps):
         env.render()
 
@@ -147,11 +147,22 @@ for each_game in range(10):
         new_observation, reward, done, info = env.step(action)
         prev_obs = new_observation
         game_memory.append([new_observation, action])
+
         score += reward
         if done: break
+'''''
+        for data in game_memory:
+           
+            if data[1] == 1:
+                output = [0, 1]
+            elif data[1] == 0:
+                output = [1, 0]
 
-    scores.append(score)
-
+            training_data.append([data[0], output])
+    model = train_model(training_data, model=model)
+'''''
+scores.append(score)
 print('Average Score:', sum(scores) / len(scores))
 print('choice 1:{}  choice 0:{}'.format(choices.count(1) / len(choices), choices.count(0) / len(choices)))
 print(score_requirement)
+
